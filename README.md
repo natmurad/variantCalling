@@ -1,2 +1,3 @@
-# variantCalling
-Scripts to perform variant calling analysis
+# :dna: Variant Calling Workflow
+
+## freebayes
