@@ -1,0 +1,114 @@
+#####CONFIG FILE#####
+configfile: "config.yaml"
+
+#print("Starting Variant Calling Workflow")
+
+#####LIBRARIES#####
+import io 
+import os
+import pandas as pd
+import pathlib
+from snakemake.exceptions import print_exception, WorkflowError
+
+#####SET VARIABLES#####
+STEP1 = config["step1"] # s2B - sam to bam conversion
+STEP2 = config["step2"] # variant calling
+INPUTDIR = config["raw_data_dir"] #  /home/user/raw_data - sam files
+DIR = config["base_dir"] # /home/user/
+OUT_STEP1 = os.path.join(DIR, STEP1) # /home/user/s2B
+OUT_STEP2 = os.path.join(DIR, STEP2) # /home/user/vC
+SAMPLE = config["samples"].split()
+REF_GENOME = config["ref_genome"]
+
+######DEFINE STEPS######
+
+rule all:
+    input:
+        out_bam = expand("{out_dir1}/{sample}.bam", out_dir1 = OUT_STEP1, sample=SAMPLE),
+        out_bam_sorted = expand("{out_dir1}/{sample}.sorted.bam", out_dir1 = OUT_STEP1, sample=SAMPLE),
+        bam_index = expand("{out_dir1}/{sample}.sorted.bam.bai", out_dir1 = OUT_STEP1, sample=SAMPLE),
+        out_freebayes = expand("{out_dir2}/{sample}.vcf", out_dir2 = OUT_STEP2, sample=SAMPLE)
+
+
+#####       RULE 1     #####
+#####CONVERT SAM TO BAM#####
+
+rule sam2bam:
+    input:
+        sam_files = INPUTDIR + "{sample}.sam"
+    output:
+        bam_files = OUT_STEP1 + "/{sample}.bam"
+    conda:
+        "vC_env.yaml"
+    log:
+        "{sample}.log"
+    params:
+        extra="" # optional params string
+    wrapper:
+        "0.78.0/bio/samtools/view"
+
+##### RULE 2 #####
+#####SORT BAM#####
+
+rule sort_bam:
+    input:
+        OUT_STEP1 + "/{sample}.bam"
+    output:
+        OUT_STEP1 + "/{sample}.sorted.bam"
+    conda:
+        "vC_env.yaml"
+    params:
+        extra = "-m 4G",
+        tmp_dir = "/tmp/"
+    threads:
+        50
+    wrapper:
+        "0.78.0/bio/samtools/sort"
+        
+
+#####     RULE 3     #####
+#####CREATE BAM INDEX#####
+
+rule bam_index:
+    input:
+        OUT_STEP1 + "/{sample}.sorted.bam"
+    output:
+        OUT_STEP1 + "/{sample}.sorted.bam.bai"
+    conda:
+        "vC_env.yaml"
+    log:
+        "logs/samtools_index/{sample}.log"
+    params:
+        "" # optional params string
+    threads:
+        50
+    wrapper:
+        "0.78.0/bio/samtools/index"
+
+#####   RULE 4    #####
+#####RUN FREEBAYES#####        
+
+rule freebayes:
+    input:
+        ref=REF_GENOME,
+        # you can have a list of samples here
+        samples= OUT_STEP1 + "/{sample}.bam",
+        # the matching BAI indexes have to present for freebayes
+        indexes=  OUT_STEP1 + "/{sample}.sorted.bam.bai"
+        # optional BED file specifying chromosomal regions on which freebayes
+        # should run, e.g. all regions that show coverage
+        # regions="/path/to/region-file.bed"
+    output:
+        OUT_STEP2 + "/{sample}.vcf"  # either .vcf or .bcf
+    conda:
+        "vC_env.yaml"
+    log:
+        "logs/freebayes/{sample}.log"
+    params:
+        extra="",         # optional parameters
+        chunksize=100000, # reference genome chunk size for parallelization (default: 100000)
+        normalize=False,  # flag to use bcftools norm to normalize indels
+    threads:
+        50
+    wrapper:
+        "0.78.0/bio/freebayes"
