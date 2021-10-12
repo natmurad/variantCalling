@@ -1,0 +1,120 @@
+#####CONFIG FILE#####
+configfile: "config.yaml"
+
+#print("Starting Variant Calling Workflow")
+
+#####LIBRARIES#####
+import io 
+import os
+import pandas as pd
+import pathlib
+from snakemake.exceptions import print_exception, WorkflowError
+
+#####SET VARIABLES#####
+STEP1 = config["step1"] # s2B - sam to bam conversion
+STEP2 = config["step2"] # variant calling
+STEP3 = config["step3"] # compress and index
+INPUTDIR = config["raw_data_dir"] #  /home/user/raw_data - sam files
+DIR = config["base_dir"] # /home/user/
+OUT_STEP1 = os.path.join(DIR, STEP1) # /home/user/s2B
+OUT_STEP2 = os.path.join(DIR, STEP2) # /home/user/vC
+OUT_STEP3 = os.path.join(DIR, STEP3) # /home/user/ciVCF
+SAMPLE = config["samples"].split()
+REF_GENOME = config["ref_genome"]
+
+######DEFINE STEPS######
+
+rule all:
+    input:
+        out_bam = expand("{out_dir1}/{sample}.bam", out_dir1 = OUT_STEP1, sample=SAMPLE),
+        out_bam_sorted = expand("{out_dir1}/{sample}.sorted.bam", out_dir1 = OUT_STEP1, sample=SAMPLE),
+        bam_index = expand("{out_dir1}/{sample}.sorted.bam.bai", out_dir1 = OUT_STEP1, sample=SAMPLE),
+        out_freebayes = expand("{out_dir2}/{sample}.vcf", out_dir2 = OUT_STEP2, sample=SAMPLE),
+        out_bgzip = expand("{out_dir3}/{sample}.vcf.gz", out_dir3 = OUT_STEP3, sample=SAMPLE),
+        out_tabix = expand("{out_dir3}/{sample}.vcf.gz.tbi", out_dir3 = OUT_STEP3, sample=SAMPLE)
+
+
+#####       RULE 1     #####
+#####CONVERT SAM TO BAM#####
+
+rule sam2bam:
+    input:
+        sam_files = INPUTDIR + "{sample}.sam"
+    output:
+        bam_files = OUT_STEP1 + "/{sample}.bam"
+    shell:"""
+        samtools view -bS {input} > {output}
+    """
+
+##### RULE 2 #####
+#####SORT BAM#####
+
+rule sort_bam:
+    input:
+        OUT_STEP1 + "/{sample}.bam"
+    output:
+        OUT_STEP1 + "/{sample}.sorted.bam"
+    threads:
+        50
+    shell:"""
+        samtools sort -@ 50 {input} -o {output}
+    """
+        
+
+#####     RULE 3     #####
+#####CREATE BAM INDEX#####
+
+rule bam_index:
+    input:
+        OUT_STEP1 + "/{sample}.sorted.bam"
+    output:
+        OUT_STEP1 + "/{sample}.sorted.bam.bai"
+    threads:
+        50
+    shell:"""
+        samtools index {input} {output}
+    """
+
+#####   RULE 4    #####
+#####RUN FREEBAYES#####        
+
+rule freebayes:
+    input:
+        ref=REF_GENOME,
+        samples= OUT_STEP1 + "/{sample}.sorted.bam",
+        indexes=  OUT_STEP1 + "/{sample}.sorted.bam.bai"
+    output:
+        OUT_STEP2 + "/{sample}.vcf"  # either .vcf or .bcf
+    threads:
+        50
+    shell:"""
+        freebayes -f {input.ref} {input.samples} > {output}
+    """
+
+#####   RULE 5   #####
+#####COMPRESS VCF#####
+
+rule compress_vcf:
+    input:
+        OUT_STEP2 + "/{sample}.vcf",
+    output:
+        OUT_STEP3 + "/{sample}.vcf.gz"
+    threads:
+        50
+    shell:"""
+        bgzip -c {input} > {output}
+    """
+
+#####  RULE 6 #####
+#####INDEX VCF#####
+
+rule index_vcf:
+    input:
+        samples= OUT_STEP3 + "/{sample}.vcf.gz",
+    output:
+        OUT_STEP3 + "/{sample}.vcf.gz.tbi"
+    threads:
+        50
+    shell:"""
+        tabix -p vcf {input}
+    """

@@ -1,0 +1,22 @@
+## Samples
+samples: '348 349 356 359 3D234 3D257 3D358 3D368 3D378 3D67 3D69 3D78
+          4D23 4D4 4D5 4D8 R332449 R348419 R489143 R484898 R462334
+          R460187 R340020 R339364'
+
+## Step names
+step1: s2B # sam to bam conversion
+step2: vC # variant calling - freebayes
+step3: ciVCF # convert and index vcf
+
+## Directories
+# Base data dir
+base_dir: /home/jac/
+
+# Change to location of all raw .sam files
+raw_data_dir: /home/jac/raw/
+
+# Path to reference genome
+ref_genome: /home/jac/raw/jac_Q15_x150_y12_z3_StrainX.unpadded.fasta
+
+# Path to input bam files
+bam_files: /home/jac/raw/s2B/
