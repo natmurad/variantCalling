@@ -1,7 +1,6 @@
 ## Samples
-samples: '348 349 356 359 3D234 3D257 3D358 3D368 3D378 3D67 3D69 3D78
-          4D23 4D4 4D5 4D8 R332449 R348419 R489143 R484898 R462334
-          R460187 R340020 R339364'
+samples: 'sample1 sample2 sample3 sample4
+          sample5 sample6 sample7 sample8'
 
 ## Step names
 step1: s2B # sam to bam conversion
@@ -10,13 +9,13 @@ step3: ciVCF # convert and index vcf
 
 ## Directories
 # Base data dir
-base_dir: /home/jac/
+base_dir: /home/base/
 
 # Change to location of all raw .sam files
-raw_data_dir: /home/jac/raw/
+raw_data_dir: /home/base/raw/
 
 # Path to reference genome
-ref_genome: /home/jac/raw/jac_Q15_x150_y12_z3_StrainX.unpadded.fasta
+ref_genome: /home/base/raw/ref_seq.unpadded.fasta
 
 # Path to input bam files
-bam_files: /home/jac/raw/s2B/
+bam_files: /home/base/raw/s2B/
