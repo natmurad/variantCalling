@@ -1,4 +1,4 @@
-# :dna: Pedigree Analysis
+# :dna: Variant Calling Analysis
 
 ## variantCalling workflow
 
