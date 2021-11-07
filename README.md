@@ -1,4 +1,4 @@
-# :dna: Pedigree Analysis
+# :dna: Pedigree Analysis -  Generate SNP Panel
 
 ## variantCalling workflow
 
