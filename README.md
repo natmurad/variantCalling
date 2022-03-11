@@ -41,4 +41,13 @@
 
 9 - Load the files with common SNPs of each family on R and analyse it (Venn graph and comparisons between families)
 
+## Prepare code before running:
+
+### Change in the file *"seqSE"* the path to the *config.yaml* file.
+
+### In *config.yaml* file change the paths for all folder.
+
+
+## Run pipeline:
+
 ```snakemake -s variantCalling -c 50```
