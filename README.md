@@ -1,6 +1,25 @@
 # :dna: Pedigree Analysis -  Generate SNP Panel
 
-## variantCalling workflow
+## Docker Environment
+
+ - Download the Dockerfile and inside same directory run:
+
+ ```docker build -t <IMAGE_TAG> .```
+
+ - Check the IMAGE ID (look for the name of your image tag):
+
+ ```docker images -a```
+ 
+ - Start container
+
+ ```docker run --name <CONTAINER_NAME> -it <IMAGE_ID> bash```
+ 
+ - Copy your files to container
+
+  ```docker cp <DIRECTORY/FILES> <CONTAINER_ID>:<DIRECTORY>```
+  
+  
+## variantCalling Workflow
 
 **Steps**:
 
@@ -23,19 +42,3 @@
 9 - Load the files with common SNPs of each family on R and analyse it (Venn graph and comparisons between families)
 
 ```snakemake -s variantCalling -c 50```
-
-**Environment**
-
- - Download [Snakemake Docker Image](https://hub.docker.com/r/snakemake/snakemake)
-
- - Start container
-
- ```docker run --name SnakemakeV1 -it <image_id> bash```
- 
- - Copy your files to container
-
-  ```docker cp <directory/files> <id_container>:<directory>```
- 
- - Create environment from file *(in the container)*:
- 
-```conda env create -f environment.yaml```
