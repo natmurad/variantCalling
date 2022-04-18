@@ -43,7 +43,7 @@
 
 ## Prepare code before running:
 
-### Change in the file *"seqSE"* the path to the *config.yaml* file.
+### Change in the file *"variantCalling"* the path to the *config.yaml* file.
 
 ### In *config.yaml* file change the paths for all folder.
 
