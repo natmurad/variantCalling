@@ -23,6 +23,8 @@
 
 **Steps**:
 
+*Input*: sam files.
+
 1 - Converts *sam files* to *bam files*
 
 2 - Creates indexed *bam files (bai)* with *samtools*
