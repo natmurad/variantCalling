@@ -1,28 +1,38 @@
-#####CONFIG FILE#####
+###############################################################################
+##########################          CONFIG          ###########################
+###############################################################################
 configfile: "config.yaml"
 
-#print("Starting Variant Calling Workflow")
-
-#####LIBRARIES#####
+##############################################################################
+##########################         LIBRARIES        ###########################
+###############################################################################
 import io 
 import os
 import pandas as pd
 import pathlib
 from snakemake.exceptions import print_exception, WorkflowError
 
-#####SET VARIABLES#####
+###############################################################################
+#######################          SET VARIABLES          #######################
+###############################################################################
 STEP1 = config["step1"] # s2B - sam to bam conversion
 STEP2 = config["step2"] # variant calling
 STEP3 = config["step3"] # compress and index
+STEP4 = config["step4"] # filter and back to vcf with plink
+STEP5 = config["step5"] # family intersections
 INPUTDIR = config["raw_data_dir"] #  /home/user/raw_data - sam files
 DIR = config["base_dir"] # /home/user/
 OUT_STEP1 = os.path.join(DIR, STEP1) # /home/user/s2B
 OUT_STEP2 = os.path.join(DIR, STEP2) # /home/user/vC
 OUT_STEP3 = os.path.join(DIR, STEP3) # /home/user/ciVCF
+OUT_STEP4 = os.path.join(DIR, STEP4) # /home/user/filterVCF
+OUT_STEP5 = os.path.join(DIR, STEP4) # /home/user/isec
 SAMPLE = config["samples"].split()
 REF_GENOME = config["ref_genome"]
 
-######DEFINE STEPS######
+###############################################################################
+##########################         RULE ALL         ###########################
+###############################################################################
 
 rule all:
     input:
@@ -31,11 +41,13 @@ rule all:
         bam_index = expand("{out_dir1}/{sample}.sorted.bam.bai", out_dir1 = OUT_STEP1, sample=SAMPLE),
         out_freebayes = expand("{out_dir2}/{sample}.vcf", out_dir2 = OUT_STEP2, sample=SAMPLE),
         out_bgzip = expand("{out_dir3}/{sample}.vcf.gz", out_dir3 = OUT_STEP3, sample=SAMPLE),
-        out_tabix = expand("{out_dir3}/{sample}.vcf.gz.tbi", out_dir3 = OUT_STEP3, sample=SAMPLE)
+        out_tabix = expand("{out_dir3}/{sample}.vcf.gz.tbi", out_dir3 = OUT_STEP3, sample=SAMPLE),
+        out_vcffilter = expand("{out_dir4}/{sample}filter.vcf.gz.tbi", out_dir4 = OUT_STEP4, sample=SAMPLE),
+        out_isec = expand("{out_dir5}/{sample}.vcf.gz.tbi", out_dir5 = OUT_STEP5, sample=SAMPLE)     
 
-
-#####       RULE 1     #####
-#####CONVERT SAM TO BAM#####
+###############################################################################
+##########################   CONVERT SAM TO BAM     ###########################
+###############################################################################
 
 rule sam2bam:
     input:
@@ -46,8 +58,9 @@ rule sam2bam:
         samtools view -bS {input} > {output}
     """
 
-##### RULE 2 #####
-#####SORT BAM#####
+###############################################################################
+##########################       SORT BAM           ###########################
+###############################################################################
 
 rule sort_bam:
     input:
@@ -60,9 +73,9 @@ rule sort_bam:
         samtools sort -@ 50 {input} -o {output}
     """
         
-
-#####     RULE 3     #####
-#####CREATE BAM INDEX#####
+###############################################################################
+##########################   CREATE BAM INDEX       ###########################
+###############################################################################
 
 rule bam_index:
     input:
@@ -75,8 +88,9 @@ rule bam_index:
         samtools index {input} {output}
     """
 
-#####   RULE 4    #####
-#####RUN FREEBAYES#####        
+###############################################################################
+############################      FREEBAYES       #############################
+###############################################################################  
 
 rule freebayes:
     input:
@@ -91,8 +105,9 @@ rule freebayes:
         freebayes -f {input.ref} {input.samples} > {output}
     """
 
-#####   RULE 5   #####
-#####COMPRESS VCF#####
+###############################################################################
+##########################       COMPRESS VCF       ###########################
+###############################################################################
 
 rule compress_vcf:
     input:
@@ -105,8 +120,9 @@ rule compress_vcf:
         bgzip -c {input} > {output}
     """
 
-#####  RULE 6 #####
-#####INDEX VCF#####
+###############################################################################
+##########################       INDEX VCF          ###########################
+###############################################################################
 
 rule index_vcf:
     input:
@@ -117,4 +133,76 @@ rule index_vcf:
         50
     shell:"""
         tabix -p vcf {input}
+    """
+
+###############################################################################
+################       FILTER VARIANTS WITH PLINK          ####################
+###############################################################################
+
+rule index_vcf:
+    input:
+        vcfgz = OUT_STEP4 + "/{sample}.vcf.gz",
+    output:
+        out = "/{sample}filter.vcf.gz"
+    params:
+        sample = "{sample}filter",
+        maf = 0.03,
+        hwe = 0.001,
+        mind = 0.1,
+        geno = 0.1
+    threads:
+        50
+    shell:"""
+        plink --vcf {input.vcfgz} --maf {params.maf} --hwe {params.hwe} \
+            --mind {params.mind} --geno {params.geno} --allow-extra-chr --make-bed --out {params.sample}
+    """
+
+###############################################################################
+################       CONVERT BED TO VCF - PLINK          ####################
+###############################################################################
+
+rule index_vcf:
+    input:
+        bed = OUT_STEP4 + "/{sample}filter.bed",
+    output:
+        vcf = OUT_STEP4 + "/{sample}.vcf.gz"
+    threads:
+        50
+    shell:"""
+        plink --bfile {input.bed} --allow-extra-chr --recode vcf --out {output.vcf}
+    """
+
+###############################################################################
+##################         INDEX FILTERED VCF              ####################
+###############################################################################
+
+rule index_vcf:
+    input:
+        samples= OUT_STEP4 + "/{sample}filter.vcf.gz",
+    output:
+        OUT_STEP4 + "/{sample}filter.vcf.gz.tbi"
+    threads:
+        50
+    shell:"""
+        tabix -p vcf {input.samples}
+    """
+
+###############################################################################
+#################         GET COMMON VARIANTS              ####################
+###############################################################################
+
+rule index_vcf:
+    input:
+        samples = expand("{out_dir5}/{sample}.vcf.gz.tbi", out_dir5 = OUT_STEP5, sample=SAMPLE),
+    output:
+        out = expand("{out_dir5}/{sample}.vcf.gz", out_dir5 = OUT_STEP5, sample=SAMPLE)
+    params:
+        dir = OUT_STEP5,
+        c = "snps",
+        t = THREADS
+    threads:
+        50
+    shell:"""
+        bcftools isec -p dir20_8419filt -c snps -O z -n~111111 --threads {params.t} \
+        {input.samples} > {output.out}
     """
